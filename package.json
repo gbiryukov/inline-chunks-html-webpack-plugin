@@ -13,6 +13,7 @@
   "license": "MIT",
   "dependencies": {
     "lodash": "^4.15.0",
-    "source-map-url": "^0.4.0"
+    "source-map-url": "^0.4.0",
+    "webpack-sources": "^0.2.3"
   }
 }

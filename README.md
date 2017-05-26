@@ -18,9 +18,10 @@ npm install inline-chunks-html-webpack-plugin --save-dev
 
 Configuration
 -----------
-- `inlineChunks`: An array of names of chunk to inline.
-   - `chunk[.ext]`: `.ext` is optional to distinguish chunk of the same name from the file extension.
-- `deleteFile`: delete file from asset default to `false`.
+- `inlineChunks`: An array of options for inlined chunks.
+  - `chunkName: 'chunk[.ext]'`: `.ext` is optional to distinguish chunk of the same name from the file extension.
+  - `removeChunkWrapper`: remove webpack chunk wrapper code. Useful when inlining styles. Default to `false`.
+  - `deleteFile`: delete file from asset default to `false`.
 ```javascript
 //webpack.config
 const InlineChunksWebpackPlugin = require('inline-chunks-html-webpack-plugin');
@@ -31,8 +32,10 @@ module.exports = {
       //...
       //...
       new InlineChunksWebpackPlugin({
-        inlineChunks: ['manifest'],
-        deleteFile: true // do not build chunks
+        inlineChunks: [{
+          chunkName: 'manifest',
+          deleteFile: true, // do not emit chunk to fs
+        }],
       })
     //...
     ]
@@ -73,9 +76,15 @@ Extract css bundle and split webpack runtime to manifest then inline it.
     }),
     new InlineChunksWebpackPlugin({
       // inlined app.css to the head and manifest.js to the body
-      inlineChunks: ['manifest', 'app.css'],
-      deleteFile: true
-	})
+      inlineChunks: [{
+        chunkName: 'manifest',
+        deleteFile: true, // do not emit chunk to fs
+      }, {
+        chunkName: 'app.css',
+        removeChunkWrapper: true,
+        deleteFile: true,
+      }],
+	  })
   ]
 }
 ```
