@@ -1,32 +1,32 @@
-var ConcatSource = require("webpack-sources").ConcatSource;
-var sourceMappingURL = require('source-map-url');
-var _ = require('lodash');
+const ConcatSource = require("webpack-sources").ConcatSource;
+const sourceMappingURL = require('source-map-url');
+const _ = require('lodash');
 
-function InlineChunkPlugin(options) {
-  this.options = Object.assign({ inlineChunks: [] }, options);
-}
+class InlineChunkPlugin {
+  constructor(options) {
+    this.options = Object.assign({inlineChunks: []}, options);
+    this.onCompilation = this.onCompilation.bind(this);
+  }
 
-InlineChunkPlugin.prototype.apply = function(compiler) {
-  var me = this
+  onCompilation(compilation) {
+    const self = this;
 
-  compiler.plugin('compilation', function(compilation) {
-
-    compilation.plugin('html-webpack-plugin-before-html-generation', (htmlPluginData, callback) => {
-      var inlineChunks = me.options.inlineChunks
-      var publicPath = compilation.options.output.publicPath || '';
-      var assets = htmlPluginData.assets
+    function onBeforeHtmlGeneration(htmlPluginData, callback) {
+      const inlineChunks = self.options.inlineChunks;
+      let publicPath = compilation.outputOptions.publicPath || '';
+      const assets = htmlPluginData.assets;
 
       if (publicPath && publicPath.substr(-1) !== '/') {
         publicPath += '/';
       }
 
       _.each(inlineChunks, function(chunkOptions) {
-        var separator = /\./;
-        var chunkName = chunkOptions.chunkName;
-        var splitUp = chunkName.split(separator);
-        var name = splitUp[0];
-        var ext = splitUp[1];
-        var matchedChunk = _.filter(compilation.chunks, function(chunk) {
+        const separator = /\./;
+        const chunkName = chunkOptions.chunkName;
+        const splitUp = chunkName.split(separator);
+        const name = splitUp[0];
+        const ext = splitUp[1];
+        const matchedChunk = _.filter(compilation.chunks, function(chunk) {
           return chunk.name === name
         })[0];
         if (!matchedChunk) {
@@ -34,14 +34,14 @@ InlineChunkPlugin.prototype.apply = function(compiler) {
           return;
         }
 
-        var chunkPath = (ext && _.filter(matchedChunk.files, function(file) {
+        const chunkPath = (ext && _.filter(matchedChunk.files, function(file) {
           return file.indexOf(ext) > -1
         }) || matchedChunk.files)[0];
 
         if (chunkPath) {
-          var source = chunkOptions.removeChunkWrapper ? removeChunkWrapper(matchedChunk) : compilation.assets[chunkPath];
+          const source = chunkOptions.removeChunkWrapper ? removeChunkWrapper(matchedChunk) : compilation.assets[chunkPath];
 
-          var path = publicPath + chunkPath;
+          const path = publicPath + chunkPath;
           assets[name] = sourceMappingURL.removeFrom(source.source());
 
           if (chunkOptions.deleteFile) {
@@ -51,9 +51,32 @@ InlineChunkPlugin.prototype.apply = function(compiler) {
           console.log("inline-chunks-html-webpack-plugin: Inlined " + chunkPath);
         }
       });
-      callback(null, htmlPluginData);
-    });
-  });
+
+      if (callback) {
+        callback(null, htmlPluginData);
+      } else {
+        return Promise.resolve(htmlPluginData);
+      }
+    }
+
+    // Webpack 4+
+    if (compilation.hooks) {
+      compilation.hooks.htmlWebpackPluginBeforeHtmlGeneration.tapAsync('inlineChunksHtmlWebpackPlugin', onBeforeHtmlGeneration);
+    } else {
+      // Webpack 3
+      compilation.plugin('html-webpack-plugin-before-html-generation', onBeforeHtmlGeneration);
+    }
+  }
+
+  apply(compiler) {
+    // Webpack 4+
+    if (compiler.hooks) {
+      compiler.hooks.compilation.tap('inlineChunksHtmlWebpackPlugin', this.onCompilation);
+    } else {
+      // Webpack 3
+      compiler.plugin('compilation', this.onCompilation);
+    }
+  }
 }
 
 /**
@@ -61,14 +84,14 @@ InlineChunkPlugin.prototype.apply = function(compiler) {
  * @returns {ConcatSource}      
  */
 function removeChunkWrapper(chunk) {
-  var source = new ConcatSource();
+  const source = new ConcatSource();
 
   chunk.modules.forEach(function(module) {
-    var moduleSource = module.source();
+    const moduleSource = module.source();
     source.add(moduleSource);
   }, this);
 
   return source;
 }
 
-module.exports = InlineChunkPlugin
+module.exports = InlineChunkPlugin;
